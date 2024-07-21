@@ -47,6 +47,7 @@ DEFAULT_CONFIGURATION = \
 	--enable-property-cache \
 	--enable-experimental \
 	--enable-glvnd \
+	--enable-trace \
 	--enable-clicd
 ARCH_CONFIGURATION =
 
@@ -55,6 +56,7 @@ FLATPAK_ARCH = arm
 FLATPAK_LIBDIR = lib
 ARCH_CONFIGURATION = \
 	--enable-arch=arm \
+	--enable-arm-tracing \
 	--enable-mali-quirks \
 	--enable-adreno-quirks
 endif
@@ -63,6 +65,7 @@ FLATPAK_ARCH = aarch64
 FLATPAK_LIBDIR = lib64
 ARCH_CONFIGURATION = \
 	--enable-arch=arm64 \
+        --enable-arm-tracing \
 	--enable-mali-quirks \
 	--enable-adreno-quirks
 endif
