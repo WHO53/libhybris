@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+
+	dpkg-divert --remove --rename --package libhybris --divert "/usr/lib/aarch64-linux-gnu/libvulkan.so.distrib" "/usr/lib/aarch64-linux-gnu/libvulkan.so"
+	dpkg-divert --remove --rename --package libhybris --divert "/usr/lib/aarch64-linux-gnu/libvulkan.so.1.distrib" "/usr/lib/aarch64-linux-gnu/libvulkan.so.1"
+
+fi
+
+exit 0
