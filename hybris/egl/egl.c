@@ -42,6 +42,11 @@
 #include <system/window.h>
 #include "logging.h"
 
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 static void *egl_handle = NULL;
 static void *glesv2_handle = NULL;
 static void *_hybris_libgles1 = NULL;
@@ -88,10 +93,51 @@ static __eglMustCastToProperFunctionPointerType (*_eglGetProcAddress)(const char
 static EGLBoolean  (*_eglGetConfigAttrib)(EGLDisplay dpy, EGLConfig config,
 		EGLint attribute, EGLint *value) = NULL;
 
+static pthread_mutex_t shm_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static void *_get_shared_memory(const char *name, size_t size) {
+    int fd = shm_open(name, O_RDWR | O_CREAT, 0666);
+    if (fd == -1) {
+        return NULL;
+    }
+    if (ftruncate(fd, size) == -1) {
+        close(fd);
+        return NULL;
+    }
+    void *addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    close(fd);
+    if (addr == MAP_FAILED) {
+        return NULL;
+    }
+    return addr;
+}
+
 static void _init_androidegl()
 {
-	egl_handle = (void *) android_dlopen(getenv("LIBEGL") ? getenv("LIBEGL") : "libEGL.so", RTLD_LAZY);
-	glesv2_handle = (void *) android_dlopen(getenv("LIBGLESV2") ? getenv("LIBGLESV2") : "libGLESv2.so", RTLD_LAZY);
+    size_t mem_size = sizeof(void *) * 2;
+
+    if (pthread_mutex_trylock(&shm_lock) == 0) {
+        void **shared_mem = _get_shared_memory("/tmp/android_egl_shared", mem_size);
+        if (shared_mem) {
+            if (shared_mem[0] && shared_mem[1]) {
+                egl_handle = shared_mem[0];
+                glesv2_handle = shared_mem[1];
+                pthread_mutex_unlock(&shm_lock);
+                return;
+            }
+
+            egl_handle = (void *) android_dlopen(getenv("LIBEGL") ? getenv("LIBEGL") : "libEGL.so", RTLD_LAZY);
+            glesv2_handle = (void *) android_dlopen(getenv("LIBGLESV2") ? getenv("LIBGLESV2") : "libGLESv2.so", RTLD_LAZY);
+
+            shared_mem[0] = egl_handle;
+            shared_mem[1] = glesv2_handle;
+        }
+
+        pthread_mutex_unlock(&shm_lock);
+    } else {
+        egl_handle = (void *) android_dlopen(getenv("LIBEGL") ? getenv("LIBEGL") : "libEGL.so", RTLD_LAZY);
+        glesv2_handle = (void *) android_dlopen(getenv("LIBGLESV2") ? getenv("LIBGLESV2") : "libGLESv2.so", RTLD_LAZY);
+    }
 }
 
 static inline void hybris_egl_initialize()
