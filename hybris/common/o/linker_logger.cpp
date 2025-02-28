@@ -95,9 +95,7 @@ static void GetAppSpecificProperty(char* buffer) {
 void LinkerLogger::ResetState() {
   // The most likely scenario app is not debuggable and
   // is running on a user build, in which case logging is disabled.
-  if (prctl(PR_GET_DUMPABLE, 0, 0, 0, 0) == 0) {
-    return;
-  }
+  return;
 
   // This is a convenient place to check whether the greylist should be disabled for testing.
 #ifdef DISABLED_FOR_HYBRIS_SUPPORT
