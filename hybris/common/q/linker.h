@@ -99,6 +99,7 @@ enum RelocationKind {
   kRelocRelative,
   kRelocCopy,
   kRelocSymbol,
+  kRelocSymbolCached,
   kRelocMax
 };
 
@@ -199,3 +200,5 @@ struct address_space_params {
   size_t reserved_size = 0;
   bool must_use_address = false;
 };
+
+ElfW(Versym) find_verdef_version_index(const soinfo* si, const version_info* vi);

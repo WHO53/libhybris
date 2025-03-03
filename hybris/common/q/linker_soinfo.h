@@ -63,6 +63,7 @@
                                          // destructor associated with this
                                          // soinfo is executed and this flag is
                                          // unset.
+#define FLAG_PRELINKED        0x00000400 // prelink_image has successfully processed this soinfo
 #define FLAG_NEW_SOINFO       0x40000000 // new soinfo format
 
 #define SOINFO_VERSION 5
@@ -242,9 +243,7 @@ struct soinfo {
 
   soinfo_list_t& get_parents();
 
-  bool find_symbol_by_name(SymbolName& symbol_name,
-                           const version_info* vi,
-                           const ElfW(Sym)** symbol) const;
+  const ElfW(Sym)* find_symbol_by_name(SymbolName& symbol_name, const version_info* vi) const;
 
   ElfW(Sym)* find_symbol_by_address(const void* addr);
   ElfW(Addr) resolve_symbol_address(const ElfW(Sym)* s) const;
@@ -293,7 +292,9 @@ struct soinfo {
   void add_secondary_namespace(android_namespace_t* secondary_ns);
   android_namespace_list_t& get_secondary_namespaces();
 
-  soinfo_tls* get_tls() const;
+  soinfo_tls* get_tls() const {
+    return has_min_version(5) ? tls_.get() : nullptr;
+  }
 
   void set_mapped_by_caller(bool reserved_map);
   bool is_mapped_by_caller() const;
@@ -306,10 +307,10 @@ struct soinfo {
   bool is_image_linked() const;
   void set_image_linked();
 
-  bool elf_lookup(SymbolName& symbol_name, const version_info* vi, uint32_t* symbol_index) const;
-  ElfW(Sym)* elf_addr_lookup(const void* addr);
-  bool gnu_lookup(SymbolName& symbol_name, const version_info* vi, uint32_t* symbol_index) const;
+  const ElfW(Sym)* gnu_lookup(SymbolName& symbol_name, const version_info* vi) const;
+  const ElfW(Sym)* elf_lookup(SymbolName& symbol_name, const version_info* vi) const;
   ElfW(Sym)* gnu_addr_lookup(const void* addr);
+  ElfW(Sym)* elf_addr_lookup(const void* addr);
 
   bool lookup_version_info(const VersionTracker& version_tracker, ElfW(Word) sym,
                            const char* sym_name, const version_info** vi);

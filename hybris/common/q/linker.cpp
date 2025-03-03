@@ -414,16 +414,24 @@ static void parse_LD_LIBRARY_PATH(const char* path) {
 }
 
 static bool realpath_fd(int fd, std::string* realpath) {
-  std::vector<char> buf(PATH_MAX), proc_self_fd(PATH_MAX);
-  snprintf(&proc_self_fd[0], proc_self_fd.size(), "/proc/self/fd/%d", fd);
-  if (readlink(&proc_self_fd[0], &buf[0], buf.size()) == -1) {
+    // proc_self_fd needs to be large enough to hold "/proc/self/fd/" plus an
+    // integer, plus the NULL terminator.
+    char proc_self_fd[32];
+    // We want to statically allocate this large buffer so that we don't grow
+    // the stack by too much.
+    static char buf[PATH_MAX];
+
+    snprintf(proc_self_fd, sizeof(proc_self_fd), "/proc/self/fd/%d", fd);
+    auto length = readlink(proc_self_fd, buf, sizeof(buf));
+    if (length == -1) {
+  
     if (!is_first_stage_init()) {
-      PRINT("readlink(\"%s\") failed: %s [fd=%d]", &proc_self_fd[0], strerror(errno), fd);
+      PRINT("readlink(\"%s\") failed: %s [fd=%d]", proc_self_fd, strerror(errno), fd);
     }
     return false;
   }
 
-  *realpath = &buf[0];
+  realpath->assign(buf, length);
   return true;
 }
 
@@ -484,10 +492,7 @@ bool soinfo_do_lookup(soinfo* si_from, const char* name, const version_info* vi,
    */
   if (si_from->has_DT_SYMBOLIC) {
     DEBUG("%s: looking up %s in local scope (DT_SYMBOLIC)", si_from->get_realpath(), name);
-    if (!si_from->find_symbol_by_name(symbol_name, vi, &s)) {
-      return false;
-    }
-
+    s = si_from->find_symbol_by_name(symbol_name, vi);
     if (s != nullptr) {
       *si_found_in = si_from;
     }
@@ -495,15 +500,10 @@ bool soinfo_do_lookup(soinfo* si_from, const char* name, const version_info* vi,
 
   // 1. Look for it in global_group
   if (s == nullptr) {
-    bool error = false;
     global_group.visit([&](soinfo* global_si) {
       DEBUG("%s: looking up %s in %s (from global group)",
           si_from->get_realpath(), name, global_si->get_realpath());
-      if (!global_si->find_symbol_by_name(symbol_name, vi, &s)) {
-        error = true;
-        return false;
-      }
-
+      s = global_si->find_symbol_by_name(symbol_name, vi);
       if (s != nullptr) {
         *si_found_in = global_si;
         return false;
@@ -511,15 +511,10 @@ bool soinfo_do_lookup(soinfo* si_from, const char* name, const version_info* vi,
 
       return true;
     });
-
-    if (error) {
-      return false;
-    }
   }
 
   // 2. Look for it in the local group
   if (s == nullptr) {
-    bool error = false;
     local_group.visit([&](soinfo* local_si) {
       if (local_si == si_from && si_from->has_DT_SYMBOLIC) {
         // we already did this - skip
@@ -528,11 +523,7 @@ bool soinfo_do_lookup(soinfo* si_from, const char* name, const version_info* vi,
 
       DEBUG("%s: looking up %s in %s (from local group)",
           si_from->get_realpath(), name, local_si->get_realpath());
-      if (!local_si->find_symbol_by_name(symbol_name, vi, &s)) {
-        error = true;
-        return false;
-      }
-
+      s = local_si->find_symbol_by_name(symbol_name, vi);
       if (s != nullptr) {
         *si_found_in = local_si;
         return false;
@@ -540,10 +531,6 @@ bool soinfo_do_lookup(soinfo* si_from, const char* name, const version_info* vi,
 
       return true;
     });
-
-    if (error) {
-      return false;
-    }
   }
 
   if (s != nullptr) {
@@ -839,11 +826,7 @@ static const ElfW(Sym)* dlsym_handle_lookup(android_namespace_t* ns,
       return kWalkSkip;
     }
 
-    if (!current_soinfo->find_symbol_by_name(symbol_name, vi, &result)) {
-      result = nullptr;
-      return kWalkStop;
-    }
-
+    result = current_soinfo->find_symbol_by_name(symbol_name, vi);
     if (result != nullptr) {
       *found = current_soinfo;
       return kWalkStop;
@@ -924,10 +907,7 @@ static const ElfW(Sym)* dlsym_linear_lookup(android_namespace_t* ns,
       continue;
     }
 
-    if (!si->find_symbol_by_name(symbol_name, vi, &s)) {
-      return nullptr;
-    }
-
+    s = si->find_symbol_by_name(symbol_name, vi);
     if (s != nullptr) {
       *found = si;
       break;
@@ -1233,12 +1213,14 @@ static bool find_loaded_library_by_inode(android_namespace_t* ns,
                                          off64_t file_offset,
                                          bool search_linked_namespaces,
                                          soinfo** candidate) {
+  if (file_stat.st_dev == 0 || file_stat.st_ino == 0) {
+    *candidate = nullptr;
+    return false;
+  }
 
   auto predicate = [&](soinfo* si) {
-    return si->get_st_dev() != 0 &&
-           si->get_st_ino() != 0 &&
+    return si->get_st_ino() == file_stat.st_ino &&
            si->get_st_dev() == file_stat.st_dev &&
-           si->get_st_ino() == file_stat.st_ino &&
            si->get_file_offset() == file_offset;
   };
 
@@ -2763,25 +2745,38 @@ static bool for_each_verdef(const soinfo* si, F functor) {
   return true;
 }
 
-bool find_verdef_version_index(const soinfo* si, const version_info* vi, ElfW(Versym)* versym) {
+ElfW(Versym) find_verdef_version_index(const soinfo* si, const version_info* vi) {
   if (vi == nullptr) {
-    *versym = kVersymNotNeeded;
-    return true;
+    return kVersymNotNeeded;
   }
 
-  *versym = kVersymGlobal;
+  ElfW(Versym) result = kVersymGlobal;
 
-  return for_each_verdef(si,
+  if (!for_each_verdef(si,
     [&](size_t, const ElfW(Verdef)* verdef, const ElfW(Verdaux)* verdaux) {
       if (verdef->vd_hash == vi->elf_hash &&
           strcmp(vi->name, si->get_string(verdaux->vda_name)) == 0) {
-        *versym = verdef->vd_ndx;
+        result = verdef->vd_ndx;
         return true;
       }
 
       return false;
     }
-  );
+  )) {
+    // verdef should have already been validated in prelink_image.
+    async_safe_fatal("invalid verdef after prelinking: %s, %s",
+                     si->get_realpath(), linker_get_error_buffer());
+  }
+
+  return result;
+}
+
+// Validate the library's verdef section. On error, returns false and invokes DL_ERR.
+bool validate_verdef_section(const soinfo* si) {
+  return for_each_verdef(si,
+    [&](size_t, const ElfW(Verdef)*, const ElfW(Verdaux)*) {
+      return false;
+    });
 }
 
 bool VersionTracker::init_verdef(const soinfo* si_from) {
@@ -2906,6 +2901,17 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
   const size_t tls_tp_base = 0/*__libc_shared_globals()->static_tls_layout.offset_thread_pointer()*/;
   std::vector<std::pair<TlsDescriptor*, size_t>> deferred_tlsdesc_relocs;
 
+  struct {
+    // Cache key
+    ElfW(Word) sym;
+
+    // Cache value
+    const ElfW(Sym)* s;
+    soinfo* lsi;
+  } symbol_lookup_cache;
+
+  symbol_lookup_cache.sym = 0;
+
   for (size_t idx = 0; rel_iterator.has_next(); ++idx) {
     const auto rel = rel_iterator.next();
     if (rel == nullptr) {
@@ -2949,17 +2955,27 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
       return false;
     } else {
       sym_name = get_string(symtab_[sym].st_name);
-      const version_info* vi = nullptr;
+      if (sym == symbol_lookup_cache.sym) {
+        s = symbol_lookup_cache.s;
+        lsi = symbol_lookup_cache.lsi;
+        count_relocation(kRelocSymbolCached);
+      } else {
+        const version_info* vi = nullptr;
 
-      sym_addr = reinterpret_cast<ElfW(Addr)>(_get_hooked_symbol(sym_name, get_realpath()));
+        sym_addr = reinterpret_cast<ElfW(Addr)>(_get_hooked_symbol(sym_name, get_realpath()));
 
-      if (!sym_addr) {
-        if (!lookup_version_info(version_tracker, sym, sym_name, &vi)) {
-          return false;
-        }
+        if (!sym_addr) {
+          if (!lookup_version_info(version_tracker, sym, sym_name, &vi)) {
+            return false;
+          }
 
-        if (!soinfo_do_lookup(this, sym_name, vi, &lsi, global_group, local_group, &s)) {
-          return false;
+          if (!soinfo_do_lookup(this, sym_name, vi, &lsi, global_group, local_group, &s)) {
+            return false;
+          }
+
+          symbol_lookup_cache.sym = sym;
+          symbol_lookup_cache.s = s;
+          symbol_lookup_cache.lsi = lsi;
         }
       }
 #ifdef WANT_ARM_TRACING
@@ -3457,6 +3473,7 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
 static soinfo_list_t g_empty_list;
 
 bool soinfo::prelink_image() {
+  if (flags_ & FLAG_PRELINKED) return true;
   /* Extract dynamic section */
   ElfW(Word) dynamic_flags = 0;
   phdr_table_get_dynamic_section(phdr, phnum, load_bias, &dynamic, &dynamic_flags);
@@ -3962,6 +3979,12 @@ bool soinfo::prelink_image() {
 
     // Don't call add_dlwarning because a missing DT_SONAME isn't important enough to show in the UI
   }
+
+  // Validate each library's verdef section once, so we don't have to validate
+  // it each time we look up a symbol with a version.
+  if (!validate_verdef_section(this)) return false;
+
+  flags_ |= FLAG_PRELINKED;
   return true;
 }
 
