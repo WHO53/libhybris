@@ -64,6 +64,7 @@ public:
     static void resize_callback(struct wl_egl_window *egl_window, void *);
     static void destroy_window_callback(void *data);
     struct wl_event_queue *wl_queue;
+    struct zwp_linux_dmabuf_v1 *wl_dmabuf;
 
 protected:
     // overloads from BaseNativeWindow
@@ -114,6 +115,7 @@ private:
     EGLint *m_damage_rects, m_damage_n_rects;
     struct wl_callback *frame_callback;
     int m_swap_interval;
+ //   struct zwp_linux_dmabuf_v1 *wl_dmabuf;
 };
 
 #endif
