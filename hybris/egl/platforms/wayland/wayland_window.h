@@ -25,7 +25,6 @@
 
 #ifndef Wayland_WINDOW_H
 #define Wayland_WINDOW_H
-#include "wayland_window_common.h"
 #include "eglnativewindowbase.h"
 #include <linux/fb.h>
 
@@ -41,6 +40,126 @@ extern "C" {
 
 #include <list>
 #include <deque>
+
+#include <gbm.h>
+#include <unistd.h>
+#include <wayland-client.h>
+#include "linux-dmabuf-unstable-v1-client-protocol.h"
+
+class WaylandNativeWindowBuffer : public BaseNativeWindowBuffer
+{
+public:
+    WaylandNativeWindowBuffer() : wlbuffer(0), busy(0), youngest(0), other(0), creation_callback(0) {}
+    WaylandNativeWindowBuffer(ANativeWindowBuffer *other)
+    {
+        ANativeWindowBuffer::width = other->width;
+        ANativeWindowBuffer::height = other->height;
+        ANativeWindowBuffer::format = other->format;
+        ANativeWindowBuffer::usage = other->usage;
+        ANativeWindowBuffer::handle = other->handle;
+        ANativeWindowBuffer::stride = other->stride;
+        this->wlbuffer = NULL;
+        this->creation_callback = NULL;
+        this->busy = 0;
+        this->other = other;
+        this->youngest = 0;
+    }
+
+    struct wl_buffer *wlbuffer;
+    int busy;
+    int youngest;
+    ANativeWindowBuffer *other;
+    struct wl_callback *creation_callback;
+
+    void wlbuffer_from_native_handle(struct android_wlegl *android_wlegl,
+                                     struct wl_display *display,
+                                     struct wl_event_queue *queue);
+
+    virtual void init(struct android_wlegl *android_wlegl,
+                      struct wl_display *display,
+                      struct wl_event_queue *queue) {}
+};
+
+//#ifdef HYBRIS_NO_SERVER_SIDE_BUFFERS
+
+class ClientWaylandBuffer : public WaylandNativeWindowBuffer
+{
+friend class WaylandNativeWindow;
+protected:
+    ClientWaylandBuffer()
+    {}
+
+    ClientWaylandBuffer(    unsigned int width,
+                            unsigned int height,
+                            unsigned int format,
+                            unsigned int usage)
+    {
+        // Base members
+        ANativeWindowBuffer::width = width;
+        ANativeWindowBuffer::height = height;
+        ANativeWindowBuffer::format = format;
+        ANativeWindowBuffer::usage = usage;
+        this->wlbuffer = NULL;
+        this->creation_callback = NULL;
+        this->busy = 0;
+        this->other = NULL;
+        int alloc_ok = hybris_gralloc_allocate(this->width ? this->width : 1, this->height ? this->height : 1,
+                this->format, this->usage,
+                &this->handle, (uint32_t*)&this->stride);
+        assert(alloc_ok == 0);
+        this->youngest = 0;
+        this->common.incRef(&this->common);
+    }
+
+    ~ClientWaylandBuffer()
+    {
+        hybris_gralloc_release(this->handle, 1);
+    }
+
+    void init(struct android_wlegl *android_wlegl,
+                                     struct wl_display *display,
+                                     struct wl_event_queue *queue);
+
+protected:
+    void* vaddr;
+
+public:
+
+};
+
+//#else
+
+class ServerWaylandBuffer : public WaylandNativeWindowBuffer
+{
+public:
+    ServerWaylandBuffer(unsigned int w, unsigned int h, int format, int usage, android_wlegl *android_wlegl, struct wl_event_queue *queue);
+    ~ServerWaylandBuffer();
+    void init(struct android_wlegl *android_wlegl,
+                                     struct wl_display *display,
+                                     struct wl_event_queue *queue);
+
+    struct wl_array ints;
+    struct wl_array fds;
+    wl_buffer *m_buf;
+};
+
+class DrmWaylandBuffer : public WaylandNativeWindowBuffer
+{
+public:
+    DrmWaylandBuffer(unsigned int w, unsigned int h, int _format, int _usage, struct wl_display *display, struct wl_event_queue *queue, struct zwp_linux_dmabuf_v1 *wl_dmabuf_s);
+    ~DrmWaylandBuffer();
+    
+    void init(struct android_wlegl *android_wlegl, struct wl_display *display, struct wl_event_queue *queue);
+
+private:
+    int drm_fd;
+    struct gbm_device *gbm_dev;
+    struct gbm_bo *bo;
+    int dmabuf_fd;
+    struct zwp_linux_dmabuf_v1 *wl_dmabuf;
+};
+
+//#endif // HYBRIS_NO_SERVER_SIDE_BUFFERS
 
 class WaylandNativeWindow : public EGLBaseNativeWindow {
 public:
@@ -64,6 +183,7 @@ public:
     static void resize_callback(struct wl_egl_window *egl_window, void *);
     static void destroy_window_callback(void *data);
     struct wl_event_queue *wl_queue;
+    struct zwp_linux_dmabuf_v1 *wl_dmabuf;
 
 protected:
     // overloads from BaseNativeWindow
@@ -114,6 +234,7 @@ private:
     EGLint *m_damage_rects, m_damage_n_rects;
     struct wl_callback *frame_callback;
     int m_swap_interval;
+ //   struct zwp_linux_dmabuf_v1 *wl_dmabuf;
 };
 
 #endif
