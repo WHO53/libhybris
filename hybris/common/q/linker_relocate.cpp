@@ -407,11 +407,11 @@ static bool process_relocation_impl(Relocator& relocator, const rel_t& reloc) {
             desc->func = tlsdesc_resolver_static;
             desc->arg = mod.static_offset - relocator.tls_tp_base + sym_addr + addend;
           } else {
-            relocator.tlsdesc_args->push_back({
-              .generation = mod.first_generation,
-              .index.module_id = module_id,
-              .index.offset = sym_addr + addend,
-            });
+            TlsDynamicResolverArg arg;
+            arg.generation = mod.first_generation;
+            arg.index.module_id = module_id;
+            arg.index.offset = sym_addr + addend;
+            relocator.tlsdesc_args->push_back(arg);
             // Defer the TLSDESC relocation until the address of the TlsDynamicResolverArg object
             // is finalized.
             relocator.deferred_tlsdesc_relocs.push_back({
