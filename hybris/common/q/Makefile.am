@@ -35,6 +35,7 @@ q_la_SOURCES = \
 	linker_memory.cpp \
 	linker_namespaces.cpp \
 	linker_phdr.cpp \
+	linker_relocate.cpp \
 	linker_sdk_versions.cpp \
 	linker_soinfo.cpp \
 	linker_tls.cpp \
