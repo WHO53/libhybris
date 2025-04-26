@@ -48,7 +48,8 @@ q_la_SOURCES = \
 
 if WANT_ARCH_ARM64
 q_la_SOURCES += \
-	tlsdesc_resolver.S
+	tlsdesc_resolver.S \
+	arch/arm_neon/linker_gnu_hash_neon.cpp
 endif
 
 q_la_CPPFLAGS = \
