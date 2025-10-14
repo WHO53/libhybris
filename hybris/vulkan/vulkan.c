@@ -672,12 +672,12 @@ VULKAN_IDLOAD(vkDestroyPrivateDataSlotEXT);
 VULKAN_IDLOAD(vkSetPrivateDataEXT);
 VULKAN_IDLOAD(vkGetPrivateDataEXT);
 #if VK_HEADER_VERSION >= 269
-VULKAN_IDLOAD(vkCreateCudaModuleNV);
-VULKAN_IDLOAD(vkGetCudaModuleCacheNV);
-VULKAN_IDLOAD(vkCreateCudaFunctionNV);
-VULKAN_IDLOAD(vkDestroyCudaModuleNV);
-VULKAN_IDLOAD(vkDestroyCudaFunctionNV);
-VULKAN_IDLOAD(vkCmdCudaLaunchKernelNV);
+//VULKAN_IDLOAD(vkCreateCudaModuleNV);
+//VULKAN_IDLOAD(vkGetCudaModuleCacheNV);
+//VULKAN_IDLOAD(vkCreateCudaFunctionNV);
+//VULKAN_IDLOAD(vkDestroyCudaModuleNV);
+//VULKAN_IDLOAD(vkDestroyCudaFunctionNV);
+//VULKAN_IDLOAD(vkCmdCudaLaunchKernelNV);
 #endif
 #if VK_HEADER_VERSION >= 235
 VULKAN_IDLOAD(vkGetDescriptorSetLayoutSizeEXT);
