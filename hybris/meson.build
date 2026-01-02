@@ -199,6 +199,8 @@ vulkan_inc = include_directories('vulkan')
 vulkan_platform_common_inc = include_directories('vulkan/platforms/common')
 platform_common_inc = include_directories('platforms/common')
 wayland_inc = include_directories('platforms/wayland')
+hwcomposer_inc = include_directories('egl/platforms/hwcomposer')
+libsync_inc = include_directories('libsync')
 
 subdir('include')
 subdir('common')
