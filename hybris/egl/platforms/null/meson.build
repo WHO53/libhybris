@@ -7,6 +7,7 @@ shared_module('eglplatform_null',
   ],
   dependencies : [android_headers_dep],
   link_with : [libhybris_eglplatformcommon, libgralloc],
+  name_prefix : '',
   install : true,
   install_dir : join_paths(get_option('libdir'), 'libhybris')
 )

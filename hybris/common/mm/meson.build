@@ -33,6 +33,7 @@ shared_module('mm',
       android_inc],
   dependencies : [android_headers_dep],
   link_args : ['-lsupc++'],
+  name_prefix : '',
   install : true,
   install_dir : linker_plugin_dir
 )

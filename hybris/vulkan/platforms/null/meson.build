@@ -7,6 +7,7 @@ shared_module('vulkanplatform_null',
   ],
   dependencies : [android_headers_dep, wayland_server_dep],
   link_with : [libhybris_vulkanplatformcommon, libgralloc],
+  name_prefix : '',
   install : true,
   install_dir : join_paths(get_option('libdir'), 'libhybris')
 )

@@ -8,6 +8,7 @@ shared_module('eglplatform_fbdev',
   ],
   dependencies : [android_headers_dep],
   link_with : [libhybris_platformcommon, libhybris_eglplatformcommon, libgralloc],
+  name_prefix : '',
   install : true,
   install_dir : join_paths(get_option('libdir'), 'libhybris')
 )

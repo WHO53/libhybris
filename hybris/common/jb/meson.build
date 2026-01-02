@@ -32,6 +32,7 @@ shared_module('jb',
   c_args : jb_c_args,
   include_directories : [hybris_inc, android_inc],
   dependencies : [android_headers_dep],
+  name_prefix : '',
   install : true,
   install_dir : linker_plugin_dir
 )

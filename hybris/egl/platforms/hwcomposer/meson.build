@@ -33,6 +33,7 @@ shared_module('eglplatform_hwcomposer',
   include_directories : hwc_inc,
   dependencies : [android_headers_dep],
   link_with : [libhybris_hwcomposerwindow, libhybris_eglplatformcommon, libgralloc],
+  name_prefix : '',
   install : true,
   install_dir : join_paths(get_option('libdir'), 'libhybris')
 )

@@ -21,6 +21,7 @@ shared_module('vulkanplatform_wayland',
   ],
   dependencies : [android_headers_dep, wayland_dep, wayland_egl_dep],
   link_with : [libhybris_platformcommon, libhybris_vulkanplatformcommon, libgralloc],
+  name_prefix : '',
   install : true,
   install_dir : join_paths(get_option('libdir'), 'libhybris')
 )
