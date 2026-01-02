@@ -15,3 +15,4 @@ option('android_headers', type : 'string', value : '', description : 'Path to an
 option('default_hybris_ld_library_path', type : 'string', value : '', description : 'Default HYBRIS_LD_LIBRARY_PATH')
 option('mali_quirks', type : 'boolean', value : false, description : 'Enable Mali GPU driver quirks')
 option('stub_linker', type : 'boolean', value : false, description : 'Enable a stub linker which does nothing')
+option('clicd', type: 'boolean', value : false, description: 'Enable OpenCL ICD (CL ICD loader) support')

@@ -8,6 +8,19 @@ if get_option('trace')
   opencl_c_args += '-DDEBUG'
 endif
 
+if get_option('clicd')
+  cl_icd = configure_file(
+    input : 'libhybris.icd.in',
+    output : 'libhybris.icd',
+    configuration : conf_data,
+  )
+
+  install_data(
+    cl_icd,
+    install_dir : join_paths(get_option('sysconfdir'), 'OpenCL', 'vendors')
+  )
+endif
+
 libopencl = shared_library('OpenCL',
   'opencl.c',
   c_args : opencl_c_args,

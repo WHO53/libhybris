@@ -28,6 +28,10 @@ if get_option('arm_tracing')
   common_cpp_args += '-DWANT_ARM_TRACING'
 endif
 
+if arch == 'arm64'
+  common_sources += files('tls_patcher.c')
+endif
+
 common_defs = [
   '-DLINKER_PLUGIN_DIR="@0@"'.format(join_paths(get_option('prefix'), linker_plugin_dir)),
 ]
@@ -73,12 +77,21 @@ if ver_major >= 10
   common_defs += '-DWANT_LINKER_Q'
 endif
 
+libhybris_hooks = static_library(
+  'hybris-hooks',
+  sources : files('hooks/atexit.cpp'),
+  cpp_args : common_cpp_args + ['-fvisibility=hidden'],
+  include_directories : [hybris_inc, android_inc],
+  install : false,
+)
+
 libhybris_common = shared_library('hybris-common',
   common_sources,
   c_args : common_c_args + common_defs,
   cpp_args : common_cpp_args + common_defs,
   include_directories : [hybris_inc, android_inc],
   dependencies : [dl_dep, rt_dep, thread_dep, android_headers_dep],
+  link_with : libhybris_hooks,
   install : true
 )
 

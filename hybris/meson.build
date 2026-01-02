@@ -63,6 +63,13 @@ else
   conf_data.set_quoted('GL_LIB_SUFFIX', '')
 endif
 
+if get_option('clicd')
+  conf_data.set('WANT_CLICD', 1)
+  conf_data.set_quoted('CL_LIB_SUFFIX', '_libhybris')
+else
+  conf_data.set_quoted('CL_LIB_SUFFIX', '')
+endif
+
 if get_option('wayland_serverside_buffers')
   conf_data.set('WANT_WL_SERVERSIDE_BUFFERS', 1)
 endif
