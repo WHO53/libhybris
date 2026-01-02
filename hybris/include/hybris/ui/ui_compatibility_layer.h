@@ -58,6 +58,8 @@ extern "C" {
     int graphic_buffer_init_check(struct graphic_buffer *buffer);
 
 #if ANDROID_VERSION_MAJOR>=10
+#include <cutils/native_handle.h>
+#include <android/rect.h>
     typedef int32_t status_t;
     typedef int32_t PixelFormat;
 
